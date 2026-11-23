@@ -1,9 +1,13 @@
 import sys
 
+# UTILS
+
 def fmt(x):
-    return f"{x:g}"
+    return f"{x+0.0:g}"
 
 def ft_sqrt(x):
+    if x != x or x == float('inf'):
+        raise ValueError("sqrt of NaN or inf")
     if x < 0:
         raise ValueError("sqrt of negative")
     if x == 0:
@@ -14,6 +18,20 @@ def ft_sqrt(x):
         if nxt >= g:
             return g
         g = nxt
+
+def is_valid_expo(exp):
+	try:
+		n = int(exp)
+		return n >= 0 and n <= 2
+	except ValueError:
+		return False
+
+def is_valid_coeff(coeff):
+	try:
+		float(coeff)
+		return coeff.replace('-', '').replace('.', '').isdecimal()
+	except ValueError:
+		return False
 
 class Polynomial:
     def reduce(self):
@@ -44,7 +62,7 @@ class Polynomial:
                 if (i >= len(args)):
                     raise ValueError("Invalid polynomial string")
 
-                if (args[i].startswith('X')):
+                if (args[i].startswith(('X', 'x'))):
                     coeff = 1.0
                 else:
                     try:
@@ -63,11 +81,11 @@ class Polynomial:
                     i += 1
                     if (i >= len(args)):
                         raise ValueError("Invalid polynomial string")
-                    if (not args[i].startswith('X')):
+                    if (not args[i].startswith(('X', 'x'))):
                         raise ValueError("Invalid polynomial string")
-                if (args[i] == 'X'):
+                if (args[i] == 'X' or args[i] == 'x'):
                     power = 1
-                elif (args[i].startswith('X^')):
+                elif (args[i].startswith(('X^', 'x^'))):
                     try:
                         power = int(args[i][2:])
                     except ValueError:
@@ -105,6 +123,8 @@ class Polynomial:
         res = [0] * max_len
         for i in range(max_len):
             res[i] = self.coeffs[i] - other.coeffs[i]
+            if abs(res[i]) < 1e-12:
+                res[i] = 0
         return Polynomial(res)
 
     def add_term(self, coeff, power):
@@ -118,13 +138,19 @@ def main():
         print("usage: python3 prog.py <arg>")
         sys.exit(1)
     elif len(sys.argv) < 2:
-        arg  = input("Enter a polynomial equation (e.g., '5 * X^0 + 4 * X^1 - 9.3 * X^2 = 1 * X^0'):\n")
+        try:
+            arg  = input("Enter a polynomial equation in the form of sums of 'n * X^k' (e.g., '5 * X^0 + 4 * X^1 - 9.3 * X^2 = 1 * X^0'):\n")
+        except (EOFError, KeyboardInterrupt):
+            sys.exit(1)
     else:
         arg = sys.argv[1]
     if (arg.count('=') != 1):
         print("Error: Invalid argument, must contain exactly one '='")
         sys.exit(1)
     l, r = arg.split('=')
+    if (l.strip() == '' or r.strip() == ''):
+        print("Error: Invalid argument, must contain both sides of the equation")
+        sys.exit(1)
     try:
         lp = Polynomial(l)
         rp = Polynomial(r)
