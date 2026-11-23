@@ -8,10 +8,10 @@ def ft_sqrt(x):
         raise ValueError("sqrt of negative")
     if x == 0:
         return 0.0
-    g = x if x >= 1 else 1.0      # any start >= sqrt(x) works
+    g = x if x >= 1 else 1.0
     while True:
         nxt = (g + x / g) / 2
-        if nxt >= g:              # stopped decreasing -> converged
+        if nxt >= g:
             return g
         g = nxt
 
@@ -134,7 +134,8 @@ def main():
     p = lp - rp
 
     print(f"Reduced form: {p} = 0")
-    print(f"Polynomial degree: {p.degree()}")
+    if p.degree() > 0:
+        print(f"Polynomial degree: {p.degree()}")
     if p.degree() > 2:
         print("The polynomial degree is strictly greater than 2, I can't solve.")
         sys.exit(1)
