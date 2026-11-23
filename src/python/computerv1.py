@@ -19,19 +19,29 @@ def ft_sqrt(x):
             return g
         g = nxt
 
+MAX_POWER = 1000
+EPS = 1e-12
+
+def is_finite(x):
+    return x - x == 0
+
+def is_near_zero(x, scale):
+    return abs(x) <= EPS * scale
+
 def is_valid_expo(exp):
-	try:
-		n = int(exp)
-		return n >= 0 and n <= 2
-	except ValueError:
-		return False
+    # plain ASCII digits only: rejects "-1", "+2", "1_0", non-ASCII digits
+    if not (exp.isascii() and exp.isdigit()):
+        return False
+    return int(exp) <= MAX_POWER
 
 def is_valid_coeff(coeff):
-	try:
-		float(coeff)
-		return coeff.replace('-', '').replace('.', '').isdecimal()
-	except ValueError:
-		return False
+    # optional sign, ASCII digits, at most one '.', at least one digit:
+    # rejects "nan", "inf", "1e3", "1_000", non-ASCII digits
+    body = coeff[1:] if coeff[:1] in ('-', '+') else coeff
+    if not body.isascii() or body.count('.') > 1:
+        return False
+    digits = body.replace('.', '')
+    return digits != '' and digits.isdigit()
 
 class Polynomial:
     def reduce(self):
@@ -65,10 +75,11 @@ class Polynomial:
                 if (args[i].startswith(('X', 'x'))):
                     coeff = 1.0
                 else:
-                    try:
-                        coeff = float(args[i])
-                    except ValueError:
+                    if (not is_valid_coeff(args[i])):
                         raise ValueError("Invalid polynomial string")
+                    coeff = float(args[i])
+                    if (not is_finite(coeff)):
+                        raise ValueError("Coefficient out of range")
                     if (i + 1 >= len(args) or args[i + 1] in ('-', '+')):
                         self.add_term(sign * coeff, 0)
                         i += 1
@@ -86,10 +97,9 @@ class Polynomial:
                 if (args[i] == 'X' or args[i] == 'x'):
                     power = 1
                 elif (args[i].startswith(('X^', 'x^'))):
-                    try:
-                        power = int(args[i][2:])
-                    except ValueError:
-                        raise ValueError("Invalid polynomial string")
+                    if (not is_valid_expo(args[i][2:])):
+                        raise ValueError("Invalid exponent")
+                    power = int(args[i][2:])
                 else:
                     raise ValueError("Invalid polynomial string")
                 self.add_term(sign * coeff, power)
@@ -122,20 +132,25 @@ class Polynomial:
         other.coeffs.extend([0] * (max_len - len(other.coeffs)))
         res = [0] * max_len
         for i in range(max_len):
-            res[i] = self.coeffs[i] - other.coeffs[i]
-            if abs(res[i]) < 1e-12:
+            l, r = self.coeffs[i], other.coeffs[i]
+            res[i] = l - r
+            if is_near_zero(res[i], max(abs(l), abs(r))):
                 res[i] = 0
         return Polynomial(res)
 
     def add_term(self, coeff, power):
         self.coeffs.extend([0] * (power + 1 - len(self.coeffs)))
-        self.coeffs[power] += coeff
+        old = self.coeffs[power]
+        new = old + coeff
+        if is_near_zero(new, max(abs(old), abs(coeff))):
+            new = 0
+        self.coeffs[power] = new
         self.reduce()
 
 # main
 def main():
     if len(sys.argv) > 2:
-        print("usage: python3 prog.py <arg>")
+        print(f'usage: python3 {sys.argv[0]} "<equation>"')
         sys.exit(1)
     elif len(sys.argv) < 2:
         try:
@@ -158,6 +173,9 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
     p = lp - rp
+    if (not all(is_finite(c) for c in p.coeffs)):
+        print("Error: coefficient out of floating-point range")
+        sys.exit(1)
 
     print(f"Reduced form: {p} = 0")
     if p.degree() > 0:
@@ -176,12 +194,20 @@ def main():
             a = p.coeffs[1]
             b = p.coeffs[0]
             sol = -b / a
+            if (not is_finite(sol)):
+                print("Error: solution out of floating-point range")
+                sys.exit(1)
             print(f"The solution is:\n{fmt(sol)}")
         case 2:
             a = p.coeffs[2]
             b = p.coeffs[1]
             c = p.coeffs[0]
             delta = b * b - 4 * a * c
+            if (not is_finite(delta)):
+                print("Error: discriminant out of floating-point range")
+                sys.exit(1)
+            if (is_near_zero(delta, b * b + abs(4 * a * c))):
+                delta = 0
             if (delta > 0):
                 sol1 = (-b - ft_sqrt(delta)) / (2 * a)
                 sol2 = (-b + ft_sqrt(delta)) / (2 * a)
